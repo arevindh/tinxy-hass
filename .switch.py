@@ -95,11 +95,12 @@ class TinxySwitch(SwitchEntity):
         self.url = "https://backend.tinxy.in/v2/devices/"+self.device_id+"/toggle"
         self.token = "Bearer "+api_key
         self.read_status()
-        self.is_available =  True
+        self.is_available = True
 
     @property
     def available(self):
         return self.is_available
+
     @property
     def unique_id(self):
         return self.device_id+'-'+self.relay_no
@@ -165,12 +166,12 @@ class TinxySwitch(SwitchEntity):
                 self.is_available = True
             else:
                 self.is_available = False
-            
+
             if data["state"] and data["state"] == "ON":
                 self._is_on = True
             elif data["state"] and data["state"] == "OFF":
                 self._is_on = False
-            
+
         # except requests.ConnectionError as e:
         #     print("OOPS!! Connection Error. Make sure you are connected to Internet. Technical Details given below.\n")
         #     print(str(e))

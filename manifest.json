@@ -11,6 +11,7 @@
   ],
   "requirements": [],
   "iot_class": "cloud_polling",
+  "config_flow": "true",
   "version": "0.1.0",
   "zeroconf": [
     {

@@ -113,7 +113,7 @@ class TinxySwitch(SwitchEntity):
         elif self.type == "Socket":
             return "mdi:power-socket-eu"
         elif self.type == "TV":
-            return "mdi:toggle-switch"
+            return "mdi:television"
         else:
             return "mdi:toggle-switch"
 

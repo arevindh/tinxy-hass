@@ -90,11 +90,19 @@ class TinxySwitch(SwitchEntity):
         self.device_name = device_name
         self.relay_no = relay_no
         self.device_id = device_id
-        self.device_type = device_type
+        self.type = device_type
         self._is_on = False
         self.url = "https://backend.tinxy.in/v2/devices/"+self.device_id+"/toggle"
         self.token = "Bearer "+api_key
         self.read_status()
+        self.is_available =  True
+
+    @property
+    def available(self):
+        return self.is_available
+    @property
+    def unique_id(self):
+        return self.device_id+'-'+self.relay_no
 
     @property
     def icon(self) -> str | None:
@@ -152,12 +160,17 @@ class TinxySwitch(SwitchEntity):
             response = requests.request(
                 "GET", "https://backend.tinxy.in/v2/devices/"+self.device_id+"/state?deviceNumber="+self.relay_no, data="", headers=headers)
             data = response.json()
-            print(f" {response.text}")
+
+            if data["status"] and data["status"] == 1:
+                self.is_available = True
+            else:
+                self.is_available = False
+            
             if data["state"] and data["state"] == "ON":
                 self._is_on = True
             elif data["state"] and data["state"] == "OFF":
                 self._is_on = False
-
+            
         # except requests.ConnectionError as e:
         #     print("OOPS!! Connection Error. Make sure you are connected to Internet. Technical Details given below.\n")
         #     print(str(e))
@@ -170,7 +183,7 @@ class TinxySwitch(SwitchEntity):
         # except KeyboardInterrupt:
         #     print("Someone closed the program")
         except Exception as e:
-            pass
+            self.is_available = False
             # _LOGGER.error("Something else happned read_status %s", e)
 
     def switch_api(self):
@@ -195,5 +208,5 @@ class TinxySwitch(SwitchEntity):
 
             # _LOGGER.warning("switch_api result",response.text)
         except Exception as e:
-            pass
+            self.is_available = False
             # _LOGGER.error("Something else happned read_status %s", e)

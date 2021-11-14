@@ -20,12 +20,8 @@ class Hub:
         self._api_key = _api_key
         self._hass = hass
         self._name = "Tinxy"
-        self._id = _name.lower()
-        self.rollers = [
-            Roller(f"{self._id}_1", f"{self._name} 1", self),
-            Roller(f"{self._id}_2", f"{self._name} 2", self),
-            Roller(f"{self._id}_3", f"{self._name} 3", self),
-        ]
+        self._id = self._name.lower()
+        self.rollers = []
         self.online = True
 
     @property

@@ -26,6 +26,10 @@ MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=10)
 
 SWITCH_PREFIX = 'Tinxy '
 CONF_API_KEY = "api_key"
+SCAN_INTERVAL = timedelta(seconds=30)
+DOMAIN = "tinxy"
+ENTITY_ID_FORMAT = DOMAIN + ".{}"
+MIN_TIME_BETWEEN_SCANS = timedelta(seconds=10)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -64,7 +68,7 @@ def read_devices(api_key):
                 _LOGGER.warning("add %s with device id %s relay_no %s",
                                 switch["name"]+" "+relay, switch["_id"], str(index))
                 list.append(TinxySwitch(api_key,
-                                        switch["_id"], switch["name"]+" "+relay, str(index)))
+                                        switch["_id"], switch["name"]+" "+relay, str(index), switch['deviceTypes'][index]))
         return list
 
     except requests.ConnectionError as e:
@@ -82,15 +86,36 @@ def read_devices(api_key):
 
 class TinxySwitch(SwitchEntity):
 
-    def __init__(self, api_key, device_id, device_name, relay_no):
+    def __init__(self, api_key, device_id, device_name, relay_no, device_type):
         self.device_name = device_name
         self.relay_no = relay_no
         self.device_id = device_id
-
+        self.device_type = device_type
         self._is_on = False
         self.url = "https://backend.tinxy.in/v2/devices/"+self.device_id+"/toggle"
         self.token = "Bearer "+api_key
         self.read_status()
+
+    @property
+    def icon(self) -> str | None:
+        """Icon of the entity."""
+
+        if self.type == "Heater":
+            return "mdi:radiator"
+        elif self.type == "Tubelight":
+            return "mdi:lightbulb-fluorescent-tube"
+        elif self.type == "LED Bulb" or self.type == "Dimmable Light" or self.type == "LED Dimmable Bulb":
+            return "mdi:lightbulb"
+        elif self.type == "Music System":
+            return "mdi:music"
+        elif self.type == "Fan":
+            return "mdi:fan"
+        elif self.type == "Socket":
+            return "mdi:power-socket-eu"
+        elif self.type == "TV":
+            return "mdi:toggle-switch"
+        else:
+            return "mdi:toggle-switch"
 
     @property
     def name(self):

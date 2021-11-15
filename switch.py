@@ -11,6 +11,7 @@ from homeassistant.const import TEMP_CELSIUS
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.util import Throttle
 import requests
 import json
 import homeassistant.helpers.config_validation as cv
@@ -26,17 +27,14 @@ MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=10)
 
 SWITCH_PREFIX = 'Tinxy '
 CONF_API_KEY = "api_key"
-SCAN_INTERVAL = timedelta(seconds=30)
+
 DOMAIN = "tinxy"
-ENTITY_ID_FORMAT = DOMAIN + ".{}"
-MIN_TIME_BETWEEN_SCANS = timedelta(seconds=10)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_API_KEY): cv.string
     }
 )
-
 
 def setup_platform(
     hass: HomeAssistant,
@@ -67,8 +65,17 @@ def read_devices(api_key):
             for index, relay in enumerate(switch['devices']):
                 _LOGGER.warning("add %s with device id %s relay_no %s",
                                 switch["name"]+" "+relay, switch["_id"], str(index))
+                device = {
+                    "identifiers": {
+                        (DOMAIN, switch["_id"])
+                    },
+                    "name": switch["name"],
+                    "manufacturer": "Tinxy",
+                    "model": switch['typeId']['name'],
+                    "sw_version": switch['firmwareVersion']
+                }
                 list.append(TinxySwitch(api_key,
-                                        switch["_id"], switch["name"]+" "+relay, str(index), switch['deviceTypes'][index]))
+                                        switch["_id"], switch["name"]+" "+relay, str(index), switch['deviceTypes'][index], device))
         return list
 
     except requests.ConnectionError as e:
@@ -86,23 +93,33 @@ def read_devices(api_key):
 
 class TinxySwitch(SwitchEntity):
 
-    def __init__(self, api_key, device_id, device_name, relay_no, device_type):
+    def __init__(self, api_key, device_id, device_name, relay_no, device_type, device_info):
         self.device_name = device_name
         self.relay_no = relay_no
         self.device_id = device_id
         self.type = device_type
         self._is_on = False
-        self.url = "https://backend.tinxy.in/v2/devices/"+self.device_id+"/toggle"
+        self.d_device_info = device_info
+        self.url = BASE_URL+"v2/devices/"+self.device_id+"/toggle"
         self.token = "Bearer "+api_key
         self.read_status()
-        self.is_available =  True
+        self.is_available = True
+
+    @property
+    def device_info(self):
+        return self.d_device_info
 
     @property
     def available(self):
         return self.is_available
+
     @property
     def unique_id(self):
         return self.device_id+'-'+self.relay_no
+
+    def update(self):
+        # self._is_on = not self._is_on
+        self.read_status()
 
     @property
     def icon(self) -> str | None:
@@ -142,7 +159,6 @@ class TinxySwitch(SwitchEntity):
 
     def turn_on(self, **kwargs):
         """Turn the switch on."""
-
         self._is_on = True
         self.switch_api()
 
@@ -158,36 +174,24 @@ class TinxySwitch(SwitchEntity):
         }
         try:
             response = requests.request(
-                "GET", "https://backend.tinxy.in/v2/devices/"+self.device_id+"/state?deviceNumber="+self.relay_no, data="", headers=headers)
+                "GET", BASE_URL+"v2/devices/"+self.device_id+"/state?deviceNumber="+self.relay_no, data="", headers=headers)
             data = response.json()
 
             if data["status"] and data["status"] == 1:
                 self.is_available = True
             else:
                 self.is_available = False
-            
+
             if data["state"] and data["state"] == "ON":
                 self._is_on = True
             elif data["state"] and data["state"] == "OFF":
                 self._is_on = False
-            
-        # except requests.ConnectionError as e:
-        #     print("OOPS!! Connection Error. Make sure you are connected to Internet. Technical Details given below.\n")
-        #     print(str(e))
-        # except requests.Timeout as e:
-        #     print("OOPS!! Timeout Error")
-        #     print(str(e))
-        # except requests.RequestException as e:
-        #     print("OOPS!! General Error")
-        #     print(str(e))
-        # except KeyboardInterrupt:
-        #     print("Someone closed the program")
         except Exception as e:
             self.is_available = False
-            # _LOGGER.error("Something else happned read_status %s", e)
+            _LOGGER.error("read_status exception")
 
     def switch_api(self):
-
+        """ Switch Device on and off"""
         _LOGGER.warning("switch_api called device_id %s relay_no %s",
                         self.device_id, self.relay_no)
         try:
@@ -209,4 +213,4 @@ class TinxySwitch(SwitchEntity):
             # _LOGGER.warning("switch_api result",response.text)
         except Exception as e:
             self.is_available = False
-            # _LOGGER.error("Something else happned read_status %s", e)
+            _LOGGER.error("Exception on switch_api")
